@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.base.actions;
+package com.google.idea.blaze.base.lang.buildfile.psi;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.idea.blaze.base.lang.buildfile.BuildFileIntegrationTestCase;
-import com.google.idea.blaze.base.lang.buildfile.psi.BuildFile;
 import com.google.idea.blaze.base.model.primitives.Label;
 import com.google.idea.blaze.base.model.primitives.WorkspacePath;
 import org.junit.Before;
@@ -26,9 +25,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link com.google.idea.blaze.base.actions.BuildFileUtils} */
+/** Tests for {@link com.google.idea.blaze.base.lang.psi.BuildFile} */
 @RunWith(JUnit4.class)
-public class BuildFileUtilsTest extends BuildFileIntegrationTestCase {
+public class BuildFileTest extends BuildFileIntegrationTestCase {
   @Before
   public void setupMacroDefinitionFile() {
     workspace.createPsiFile(new WorkspacePath("foo/bar/BUILD"));
@@ -48,9 +47,8 @@ public class BuildFileUtilsTest extends BuildFileIntegrationTestCase {
             "    name = \"my_lib\"",
             ")");
 
-    Label foundMacro =
-        BuildFileUtils.findMacroWithMatchingPrefix(
-            buildFile, Label.create("//java/com/google:my_lib_test_some_suffix"));
+    Label foundMacro = buildFile.findMacroWithMatchingPrefix("my_lib_test_some_suffix")
+        .resolveBuildLabel();
 
     assertThat(foundMacro).isEqualTo(Label.create("//java/com/google:my_lib"));
   }
@@ -65,9 +63,8 @@ public class BuildFileUtilsTest extends BuildFileIntegrationTestCase {
             "    name = \"my_lib\"",
             ")");
 
-    Label foundMacro =
-        BuildFileUtils.findMacroWithMatchingPrefix(
-            buildFile, Label.create("//java/com/google:my_lib-test_some_suffix"));
+    Label foundMacro = buildFile.findMacroWithMatchingPrefix("my_lib-test_some_suffix")
+        .resolveBuildLabel();
 
     assertThat(foundMacro).isEqualTo(Label.create("//java/com/google:my_lib"));
   }
@@ -82,9 +79,8 @@ public class BuildFileUtilsTest extends BuildFileIntegrationTestCase {
             "    name = \"my_lib\"",
             ")");
 
-    Label foundMacro =
-        BuildFileUtils.findMacroWithMatchingPrefix(
-            buildFile, Label.create("//java/com/google:my_lib.some_suffix"));
+    FuncallExpression foundMacro = buildFile
+        .findMacroWithMatchingPrefix("my_lib.some_suffix");
 
     assertThat(foundMacro).isNull();
   }
@@ -98,9 +94,8 @@ public class BuildFileUtilsTest extends BuildFileIntegrationTestCase {
             "    name = \"my_lib_test\"",
             ")");
 
-    Label foundMacro =
-        BuildFileUtils.findMacroWithMatchingPrefix(
-            buildFile, Label.create("//java/com/google:my_lib_test_some_suffix"));
+    FuncallExpression foundMacro = buildFile
+        .findMacroWithMatchingPrefix("my_lib_test_some_suffix");
 
     assertThat(foundMacro).isNull();
   }

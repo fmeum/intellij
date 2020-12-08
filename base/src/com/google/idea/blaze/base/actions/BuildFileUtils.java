@@ -89,37 +89,13 @@ final class BuildFileUtils {
     }
 
     if (enableMacroPrefixMatching.getValue()) {
-      Label macroWithMatchingPrefix = findMacroWithMatchingPrefix(parentPackage.buildFile, label);
+      FuncallExpression macroWithMatchingPrefix = parentPackage.buildFile.findMacroWithMatchingPrefix(
+        label.targetName().toString());
       if (macroWithMatchingPrefix != null) {
-        return BuildReferenceManager.getInstance(project).resolveLabel(macroWithMatchingPrefix);
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Returns the label of a macro with name prefixing the target name of a given label with a '_' or
-   * '-' delimiter.
-   */
-  @Nullable
-  @VisibleForTesting
-  static Label findMacroWithMatchingPrefix(BuildFile buildFile, Label label) {
-    Set<String> loadedSymbols =
-        Arrays.stream(buildFile.findChildrenByClass(LoadStatement.class))
-            .flatMap(l -> Arrays.stream(l.getVisibleSymbolNames()))
-            .collect(toImmutableSet());
-
-    String nameToMatch = label.targetName().toString();
-    for (FuncallExpression expr : buildFile.findChildrenByClass(FuncallExpression.class)) {
-      String name = expr.getNameArgumentValue();
-      if (loadedSymbols.contains(expr.getFunctionName())
-          && name != null
-          && name.length() < nameToMatch.length()
-          && nameToMatch.startsWith(name)
-          && (nameToMatch.charAt(name.length()) == '_'
-              || nameToMatch.charAt(name.length()) == '-')) {
-        return label.withTargetName(name);
+        Label macroLabel = macroWithMatchingPrefix.resolveBuildLabel();
+        if (macroLabel != null) {
+          return BuildReferenceManager.getInstance(project).resolveLabel(macroLabel);
+        }
       }
     }
 

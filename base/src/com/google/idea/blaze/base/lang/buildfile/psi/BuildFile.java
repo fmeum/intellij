@@ -15,11 +15,14 @@
  */
 package com.google.idea.blaze.base.lang.buildfile.psi;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.idea.blaze.base.lang.buildfile.language.BuildFileType;
 import com.google.idea.blaze.base.lang.buildfile.references.QuoteType;
 import com.google.idea.blaze.base.lang.buildfile.search.BlazePackage;
 import com.google.idea.blaze.base.model.primitives.Label;
 import com.google.idea.blaze.base.sync.workspace.WorkspaceHelper;
+import com.google.idea.common.experiments.BoolExperiment;
 import com.intellij.extapi.psi.PsiFileBase;
 import com.intellij.navigation.ItemPresentation;
 import com.intellij.openapi.fileTypes.FileType;
@@ -31,11 +34,16 @@ import com.intellij.util.PathUtil;
 import com.intellij.util.Processor;
 import icons.BlazeIcons;
 import java.io.File;
+import java.util.Arrays;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.swing.Icon;
 
 /** Build file PSI element */
 public class BuildFile extends PsiFileBase implements BuildElement, DocStringOwner {
+
+  static final BoolExperiment enableFindRuleMacroPrefixMatching =
+      new BoolExperiment("buildfile.macro.prefix.matching.find.rule.enabled", true);
 
   /** The blaze file type */
   public enum BlazeFileType {
@@ -128,7 +136,11 @@ public class BuildFile extends PsiFileBase implements BuildElement, DocStringOwn
         : null;
   }
 
-  /** Finds a top-level rule with a "name" keyword argument with the given value. */
+  /**
+   * Finds a top-level rule with a "name" keyword argument with the given value. If there is no such
+   * rule, a rule with a "name" keyword argument that is a potential macro prefix of the given value
+   * may be returned instead.
+   */
   @Nullable
   public FuncallExpression findRule(String name) {
     for (FuncallExpression expr : findChildrenByClass(FuncallExpression.class)) {
@@ -136,6 +148,9 @@ public class BuildFile extends PsiFileBase implements BuildElement, DocStringOwn
       if (name.equals(ruleName)) {
         return expr;
       }
+    }
+    if (enableFindRuleMacroPrefixMatching.getValue()) {
+      return findMacroWithMatchingPrefix(name);
     }
     return null;
   }
@@ -160,6 +175,31 @@ public class BuildFile extends PsiFileBase implements BuildElement, DocStringOwn
         }
       }
     }
+    return null;
+  }
+
+  /**
+   * Returns a macro rule with name prefixing the given target name with a '_' or '-' delimiter.
+   */
+  @Nullable
+  public FuncallExpression findMacroWithMatchingPrefix(String nameToMatch) {
+    Set<String> loadedSymbols =
+        Arrays.stream(findChildrenByClass(LoadStatement.class))
+            .flatMap(l -> Arrays.stream(l.getVisibleSymbolNames()))
+            .collect(toImmutableSet());
+
+    for (FuncallExpression expr : findChildrenByClass(FuncallExpression.class)) {
+      String name = expr.getNameArgumentValue();
+      if (loadedSymbols.contains(expr.getFunctionName())
+          && name != null
+          && name.length() < nameToMatch.length()
+          && nameToMatch.startsWith(name)
+          && (nameToMatch.charAt(name.length()) == '_'
+              || nameToMatch.charAt(name.length()) == '-')) {
+        return expr;
+      }
+    }
+
     return null;
   }
 
